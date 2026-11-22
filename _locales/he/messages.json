@@ -1,9 +1,9 @@
 {
   "extensionName": {
-    "message": "Just Print Selection"
+    "message": "Edit2Print"
   },
   "extensionDescription": {
-    "message": "הדפסת טקסט ותמונות מסומנים או שמירת חלק מדף אינטרנט כ־PDF."
+    "message": "בחרו תוכן מדף אינטרנט, ערכו אותו לפני ההדפסה, הסירו טקסט ותמונות מיותרים ושמרו כ־PDF."
   },
   "printSelection": {
     "message": "הדפס בחירה"

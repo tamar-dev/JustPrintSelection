@@ -1,9 +1,9 @@
 {
   "extensionName": {
-    "message": "Just Print Selection"
+    "message": "Edit2Print"
   },
   "extensionDescription": {
-    "message": "Print selected text and images, or save just part of a webpage as PDF."
+    "message": "Select, edit and print webpage content. Remove unwanted text and images, or save as PDF."
   },
   "printSelection": {
     "message": "Print selection"

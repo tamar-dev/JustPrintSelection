@@ -20,12 +20,70 @@ document.getElementById('font-color').setAttribute('aria-label',isHebrew?'צבע
 const status=document.getElementById('status');
 const undoButton=document.getElementById('undo'), redoButton=document.getElementById('redo');
 let history=[],position=-1,selectedImage=null,restoring=false,recordTimer,savedRange=null;
+const blockTags=new Set(['P','DIV','SECTION','ARTICLE','HEADER','FOOTER','MAIN','H1','H2','H3','H4','H5','H6','UL','OL','LI','BLOCKQUOTE','PRE','TABLE','FIGURE','FIGCAPTION','DL','DT','DD','IMG']);
+const deleteBlockButton=document.getElementById('delete-block');
+let hoveredBlock=null;
+function pickBlock(target){
+  if(!(target instanceof Element)||!content.contains(target))return null;
+  let current=target;
+  while(current&&current!==content){if(blockTags.has(current.tagName))return current;current=current.parentElement;}
+  return null;
+}
+function hideBlockAction(){if(hoveredBlock)hoveredBlock.classList.remove('block-hover-target');hoveredBlock=null;deleteBlockButton.hidden=true;}
+function showBlockAction(block){
+  if(!block||!block.isConnected){hideBlockAction();return;}
+  if(hoveredBlock&&hoveredBlock!==block)hoveredBlock.classList.remove('block-hover-target');
+  hoveredBlock=block;
+  hoveredBlock.classList.add('block-hover-target');
+  const rect=block.getBoundingClientRect();
+  if(!rect.width||!rect.height){hideBlockAction();return;}
+  deleteBlockButton.hidden=false;
+  const width=deleteBlockButton.offsetWidth||30;
+  deleteBlockButton.style.left=Math.max(4,Math.min(window.innerWidth-width-4,rect.right-width))+'px';
+  deleteBlockButton.style.top=Math.max(4,Math.min(window.innerHeight-36,rect.top+4))+'px';
+}
+content.addEventListener('pointermove',event=>{
+  if(event.pointerType==='touch')return;
+  const block=pickBlock(event.target);
+  if(block!==hoveredBlock)showBlockAction(block);
+});
+content.addEventListener('pointerleave',event=>{if(event.relatedTarget!==deleteBlockButton)hideBlockAction();});
+deleteBlockButton.addEventListener('click',()=>{
+  if(!hoveredBlock||!content.contains(hoveredBlock))return;
+  clearTimeout(recordTimer);snapshot();
+  const block=hoveredBlock;hideBlockAction();block.remove();snapshot();
+  // The contextual delete button becomes hidden; move focus to a stable control.
+  // Otherwise Chrome can route Ctrl+Z to the browser instead of this editor.
+  undoButton.focus({preventScroll:true});
+});
+deleteBlockButton.addEventListener('pointerleave',()=>hideBlockAction());
+window.addEventListener('scroll',()=>{if(hoveredBlock)showBlockAction(hoveredBlock);},{passive:true});
+window.addEventListener('resize',hideBlockAction);
 function prepareImages(){for(const img of content.querySelectorAll('img')){img.tabIndex=0;img.setAttribute('aria-label',(img.alt||(isHebrew?'תמונה':'Image'))+(isHebrew?' — Enter לבחירה, Delete למחיקה':' — Enter to select, Delete to remove'));}}
 function removeSelectedImage(){if(!selectedImage)return false;clearTimeout(recordTimer);snapshot();const image=selectedImage;clearImageSelection();image.remove();snapshot();content.focus();return true;}
 function clearImageSelection(){ if(selectedImage) selectedImage.classList.remove('selected-for-removal'); selectedImage=null; }
-function snapshot(){if(restoring)return;const html=content.innerHTML.replace(/ class="selected-for-removal"/g,'');if(history[position]===html)return;history=history.slice(0,position+1);history.push(html);if(history.length>80)history.shift();position=history.length-1;refresh();}
+// Strip editor-only highlighting from serialized markup without cloning the entire DOM.
+function historyHtml(){
+  return content.innerHTML.replace(/\\sclass="([^"]*)"/g,(attribute,classes)=>{
+    const remaining=classes.split(/\\s+/).filter(name=>name&&name!=='selected-for-removal'&&name!=='block-hover-target');
+    return remaining.length?' class="'+remaining.join(' ')+'"':'';
+  });
+}
+function snapshot(){
+  if(restoring)return;
+  const html=historyHtml();
+  if(history[position]===html)return;
+  history=history.slice(0,position+1);
+  history.push(html);
+  if(history.length>80)history.shift();
+  position=history.length-1;
+  refresh();
+}
 function refresh(){undoButton.disabled=position<=0;redoButton.disabled=position>=history.length-1;}
-function restore(next){if(next<0||next>=history.length)return;restoring=true;clearImageSelection();content.innerHTML=history[next];prepareImages();position=next;refresh();restoring=false;content.focus();}
+function flushPendingEdit(){if(recordTimer){clearTimeout(recordTimer);recordTimer=null;snapshot();}}
+function undo(){flushPendingEdit();restore(position-1);}
+function redo(){flushPendingEdit();restore(position+1);}
+function restore(next){if(next<0||next>=history.length)return;const scrollX=window.scrollX,scrollY=window.scrollY;restoring=true;hideBlockAction();clearImageSelection();savedRange=null;content.innerHTML=history[next];prepareImages();position=next;refresh();restoring=false;window.scrollTo(scrollX,scrollY);}
 function safeTextStyle(style){
   const result=[];
   for(const declaration of style.split(';')){
@@ -110,7 +168,7 @@ for(const button of document.querySelectorAll('.toolbar button')){
   if(['bold','italic','underline'].includes(button.id))button.addEventListener('mousedown',event=>event.preventDefault());
 }
 
-content.addEventListener('input',()=>{clearTimeout(recordTimer);recordTimer=setTimeout(snapshot,250);});
+content.addEventListener('input',()=>{clearTimeout(recordTimer);recordTimer=setTimeout(()=>{recordTimer=null;snapshot();},250);});
 content.addEventListener('focusin',event=>{if(event.target instanceof HTMLImageElement){clearImageSelection();selectedImage=event.target;selectedImage.classList.add('selected-for-removal');}});
 content.addEventListener('click',event=>{const image=event.target.closest?.('img');clearImageSelection();if(image&&content.contains(image)){selectedImage=image;image.classList.add('selected-for-removal');}});
 content.addEventListener('paste',event=>{event.preventDefault();const text=event.clipboardData?.getData('text/plain')||'';const selection=window.getSelection();if(!selection?.rangeCount)return;const range=selection.getRangeAt(0);if(!content.contains(range.commonAncestorContainer))return;range.deleteContents();const node=document.createTextNode(text);range.insertNode(node);range.setStartAfter(node);range.collapse(true);selection.removeAllRanges();selection.addRange(range);snapshot();});
@@ -123,17 +181,22 @@ document.getElementById('remove').addEventListener('click',()=>{
 });
 document.addEventListener('keydown',event=>{
   const key=event.key.toLowerCase();
+  // event.code remains KeyZ/KeyY with Hebrew and other keyboard layouts.
+  const shortcut=event.code.startsWith('Key')?event.code.slice(3).toLowerCase():key;
   const modifier=(event.ctrlKey||event.metaKey)&&!event.altKey;
-  if(modifier&&key==='p'){event.preventDefault();document.getElementById('print').click();return;}
-  if(modifier&&['b','i','u'].includes(key)&&selectionInEditor()){
-    event.preventDefault();formatSelection({b:'bold',i:'italic',u:'underline'}[key]);return;
+  if(modifier&&shortcut==='p'){event.preventDefault();document.getElementById('print').click();return;}
+  if(modifier&&['b','i','u'].includes(shortcut)&&selectionInEditor()){
+    event.preventDefault();formatSelection({b:'bold',i:'italic',u:'underline'}[shortcut]);return;
   }
-  if(modifier&&(key==='z'||key==='y')){
+  if(modifier&&(shortcut==='z'||shortcut==='y')){
     const target=event.target;
-    if(target instanceof HTMLElement&&(target.isContentEditable||content.contains(target))){
-      event.preventDefault();clearTimeout(recordTimer);
-      if(key==='z'&&!event.shiftKey){snapshot();restore(position-1);}
-      else if(key==='y'||(key==='z'&&event.shiftKey)){restore(position+1);}
+    const isEditableOutsideEditor=target instanceof HTMLElement&&
+      !content.contains(target)&&target!==content&&
+      (target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(target.tagName));
+    if(!isEditableOutsideEditor){
+      event.preventDefault();
+      if(shortcut==='z'&&!event.shiftKey)undo();
+      else if(shortcut==='y'||(shortcut==='z'&&event.shiftKey))redo();
     }
     return;
   }
@@ -146,9 +209,9 @@ document.addEventListener('keydown',event=>{
   }
 });
 document.getElementById('add-text').addEventListener('click',()=>{clearImageSelection();const p=document.createElement('p');p.appendChild(document.createElement('br'));content.appendChild(p);snapshot();content.focus();const range=document.createRange();range.selectNodeContents(p);range.collapse(true);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);});
-undoButton.addEventListener('click',()=>{clearTimeout(recordTimer);snapshot();restore(position-1);});
-redoButton.addEventListener('click',()=>{clearTimeout(recordTimer);restore(position+1);});
-document.getElementById('print').addEventListener('click',()=>{clearTimeout(recordTimer);snapshot();clearImageSelection();window.print();});
+undoButton.addEventListener('click',undo);
+redoButton.addEventListener('click',redo);
+document.getElementById('print').addEventListener('click',()=>{clearTimeout(recordTimer);snapshot();hideBlockAction();clearImageSelection();window.print();});
 (async()=>{
  const id=new URLSearchParams(location.search).get('id');
  if(!id||!/^[a-f0-9-]{36}$/i.test(id))throw new Error(t('invalidJob'));

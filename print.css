@@ -22,3 +22,20 @@ table { border-collapse:collapse; max-width:100%; } th,td { border:1px solid #bb
 .toolbar input[type="color"]{width:42px;padding:3px;cursor:pointer;}
 .toolbar label{font-size:13px;}
 .toolbar button[aria-pressed="true"]{outline:2px solid #2359c4;outline-offset:1px;}
+
+/* Contextual delete action only appears when hovering a content block. */
+#delete-block{position:fixed;z-index:90;width:30px;height:30px;padding:0;border-radius:9px;background:#fff0f0;color:#9b1c1c;border:1px solid #f0b7b7;box-shadow:0 2px 6px #0002;font-size:22px;line-height:1;}
+#delete-block:hover,#delete-block:focus-visible{background:#fbdada;outline:2px solid #9b1c1c;}
+#delete-block[hidden]{display:none;}
+/* Keep tables, images, headings and short paragraphs together where possible. */
+@media print{
+  #delete-block{display:none!important;}
+  #content h1,#content h2,#content h3,#content h4,#content h5,#content h6{break-after:avoid-page;page-break-after:avoid;}
+  #content p,#content li{orphans:3;widows:3;}
+  #content tr,#content figure,#content blockquote{break-inside:avoid;page-break-inside:avoid;}
+  #content img{max-height:240mm!important;object-fit:contain;}
+}
+
+/* Subtle preview of the exact block that the contextual remove button will delete. */
+#content .block-hover-target{outline:1.5px solid #8da9c7!important;outline-offset:3px;background-color:rgba(124,169,210,.075);border-radius:3px;}
+@media print{#content .block-hover-target{outline:none!important;background-color:transparent!important;}}

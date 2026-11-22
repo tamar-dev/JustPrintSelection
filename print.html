@@ -1,5 +1,13 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Print selection</title><link rel="stylesheet" href="print.css"></head>
-<body><header class="toolbar"><span>Just Print Selection</span><button id="print">🖨 <span id="print-label"></span></button></header>
-<main id="content"></main><p id="status" role="status"></p><script src="ui-locale.js"></script><script src="print.js"></script></body></html>
+<body>
+<header class="toolbar"><strong>Just Print Selection</strong><div class="actions">
+<button type="button" id="undo" class="secondary" disabled>↶ <span id="undo-label"></span></button>
+<button type="button" id="redo" class="secondary" disabled>↷ <span id="redo-label"></span></button>
+<button type="button" id="add-text" class="secondary">＋ <span id="add-label"></span></button>
+<button type="button" id="remove" class="secondary">✕ <span id="remove-label"></span></button>
+<button type="button" id="print">🖨 <span id="print-label"></span></button>
+</div></header>
+<p id="hint"></p><main id="content" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Editable print content"></main>
+<p id="status" role="status"></p><script src="ui-locale.js"></script><script src="print.js"></script></body></html>

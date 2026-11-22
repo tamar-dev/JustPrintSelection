@@ -10,7 +10,7 @@ const status=document.getElementById('status');
 const undoButton=document.getElementById('undo'), redoButton=document.getElementById('redo');
 let history=[],position=-1,selectedImage=null,restoring=false,recordTimer;
 function clearImageSelection(){ if(selectedImage) selectedImage.classList.remove('selected-for-removal'); selectedImage=null; }
-function snapshot(){if(restoring)return;const html=content.innerHTML;if(history[position]===html)return;history=history.slice(0,position+1);history.push(html);if(history.length>80)history.shift();position=history.length-1;refresh();}
+function snapshot(){if(restoring)return;const html=content.innerHTML.replace(/ class="selected-for-removal"/g,'');if(history[position]===html)return;history=history.slice(0,position+1);history.push(html);if(history.length>80)history.shift();position=history.length-1;refresh();}
 function refresh(){undoButton.disabled=position<=0;redoButton.disabled=position>=history.length-1;}
 function restore(next){if(next<0||next>=history.length)return;restoring=true;clearImageSelection();content.innerHTML=history[next];position=next;refresh();restoring=false;content.focus();}
 function sanitize(parent){
@@ -19,7 +19,7 @@ function sanitize(parent){
   for(const node of [...parent.childNodes]){
     if(node.nodeType===Node.COMMENT_NODE){node.remove();continue;}
     if(node.nodeType!==Node.ELEMENT_NODE)continue;
-    if(!tags.has(node.tagName)){node.replaceWith(...node.childNodes);sanitize(parent);continue;}
+    if(!tags.has(node.tagName)){if(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','SVG','MATH','TEMPLATE','FORM'].includes(node.tagName)){node.remove();}else{node.replaceWith(...node.childNodes);sanitize(parent);}continue;}
     for(const attr of [...node.attributes]){
       const name=attr.name.toLowerCase(),value=attr.value;
       let safe=false;
@@ -41,7 +41,7 @@ document.getElementById('remove').addEventListener('click',()=>{
   const range=selection.getRangeAt(0);if(!content.contains(range.commonAncestorContainer))return;
   range.deleteContents();snapshot();content.focus();
 });
-document.getElementById('add-text').addEventListener('click',()=>{clearImageSelection();const p=document.createElement('p');p.textContent=' ';content.appendChild(p);snapshot();content.focus();const range=document.createRange();range.selectNodeContents(p);range.collapse(true);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);});
+document.getElementById('add-text').addEventListener('click',()=>{clearImageSelection();const p=document.createElement('p');p.appendChild(document.createElement('br'));content.appendChild(p);snapshot();content.focus();const range=document.createRange();range.selectNodeContents(p);range.collapse(true);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);});
 undoButton.addEventListener('click',()=>{clearTimeout(recordTimer);snapshot();restore(position-1);});
 redoButton.addEventListener('click',()=>{clearTimeout(recordTimer);restore(position+1);});
 document.getElementById('print').addEventListener('click',()=>{clearTimeout(recordTimer);snapshot();clearImageSelection();window.print();});

@@ -75,17 +75,20 @@ function restoreTextSelection(){
 function formatSelection(command,value){
   if(!restoreTextSelection())return;
   clearTimeout(recordTimer);snapshot();
-  document.execCommand('styleWithCSS',false,'true');
-  document.execCommand(command,false,value);
-  // Chrome fontSize uses legacy 1-7 values; convert its output to explicit pixels.
   if(command==='fontSize'){
-    const pixels=Number(value);
-    for(const font of [...content.querySelectorAll('font[size="7"]')]){
-      const span=document.createElement('span');
-      span.style.fontSize=pixels+'px';
-      while(font.firstChild)span.appendChild(font.firstChild);
-      font.replaceWith(span);
-    }
+    const selection=window.getSelection();
+    const range=selection.getRangeAt(0);
+    const wrapper=document.createElement('span');
+    wrapper.style.fontSize=Number(value)+'px';
+    wrapper.appendChild(range.extractContents());
+    range.insertNode(wrapper);
+    selection.removeAllRanges();
+    const newRange=document.createRange();
+    newRange.selectNodeContents(wrapper);
+    selection.addRange(newRange);
+  }else{
+    document.execCommand('styleWithCSS',false,'true');
+    document.execCommand(command,false,value);
   }
   savedRange=null;snapshot();
 }

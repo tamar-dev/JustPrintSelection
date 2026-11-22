@@ -3,6 +3,11 @@
 <title>Print selection</title><link rel="stylesheet" href="print.css"></head>
 <body>
 <header class="toolbar"><strong>Just Print Selection</strong><div class="actions">
+<label for="font-size" id="font-size-label">Size</label><select id="font-size" aria-label="Font size"><option value="12">12</option><option value="14">14</option><option value="16" selected>16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option><option value="32">32</option><option value="40">40</option></select>
+<label for="font-color" id="font-color-label">Color</label><input id="font-color" type="color" value="#202124" aria-label="Text color">
+<button type="button" id="bold" class="secondary" aria-label="Bold" title="Ctrl+B"><strong>B</strong></button>
+<button type="button" id="italic" class="secondary" aria-label="Italic" title="Ctrl+I"><em>I</em></button>
+<button type="button" id="underline" class="secondary" aria-label="Underline" title="Ctrl+U"><u>U</u></button>
 <button type="button" id="undo" class="secondary" disabled>↶ <span id="undo-label"></span></button>
 <button type="button" id="redo" class="secondary" disabled>↷ <span id="redo-label"></span></button>
 <button type="button" id="add-text" class="secondary">＋ <span id="add-label"></span></button>

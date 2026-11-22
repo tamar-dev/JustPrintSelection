@@ -2,17 +2,25 @@ const t = uiText;
 const uiLang = chrome.i18n.getUILanguage();
 document.documentElement.lang = uiLang;
 document.documentElement.dir = /^(he|ar|fa|ur)(-|$)/i.test(uiLang) ? 'rtl' : 'ltr';
-const labels = {en:{undo:'Undo',redo:'Redo',add:'Add text',remove:'Remove',hint:'Select text to format it. Edit text directly. Click an image to select it, then Remove. Select text to delete it.'},he:{undo:'בטל',redo:'בצע שוב',add:'הוסף טקסט',remove:'הסר',hint:'סמנו טקסט כדי לעצב אותו. ניתן לערוך את הטקסט ישירות. לחצו על תמונה כדי לבחור אותה ואז על הסר. אפשר גם לסמן טקסט ולמחוק אותו.'}};
+const labels = {en:{undo:'Undo',redo:'Redo',add:'Add text',remove:'Remove',hint:'Select text to format it. Edit text directly. Select an image and press Delete or Backspace to remove it. Use Ctrl+Z to undo and Ctrl+P to print.'},he:{undo:'בטל',redo:'בצע שוב',add:'הוסף טקסט',remove:'הסר',hint:'סמנו טקסט כדי לעצב אותו. ניתן לערוך ישירות. בחרו תמונה ולחצו Delete או Backspace להסרה. Ctrl+Z לביטול ו־Ctrl+P להדפסה.'}};
 const l = labels[uiLang.split(/[-_]/)[0].toLowerCase()] || labels.en;
 for (const [id,value] of [['print-label',t('printButton')],['undo-label',l.undo],['redo-label',l.redo],['add-label',l.add],['remove-label',l.remove],['hint',l.hint]]) document.getElementById(id).textContent=value;
 const formattingLabels=uiLang.toLowerCase().startsWith('he')?{size:'גודל',color:'צבע',bold:'מודגש',italic:'נטוי',underline:'קו תחתון'}:{size:'Size',color:'Color',bold:'Bold',italic:'Italic',underline:'Underline'};
 for(const [id,value] of [['font-size-label',formattingLabels.size],['font-color-label',formattingLabels.color]])document.getElementById(id).textContent=value;
 for(const key of ['bold','italic','underline'])document.getElementById(key).setAttribute('aria-label',formattingLabels[key]);
 const content=document.getElementById('content');
+const isHebrew=uiLang.split(/[-_]/)[0].toLowerCase()==='he';
+content.setAttribute('aria-label',isHebrew?'תוכן להדפסה שניתן לערוך':'Editable print content');
+for(const key of ['bold','italic','underline']){
+  const button=document.getElementById(key);
+  button.setAttribute('title',formattingLabels[key]+' (Ctrl+'+key[0].toUpperCase()+')');
+}
+document.getElementById('font-size').setAttribute('aria-label',isHebrew?'גודל גופן':'Font size');
+document.getElementById('font-color').setAttribute('aria-label',isHebrew?'צבע טקסט':'Text color');
 const status=document.getElementById('status');
 const undoButton=document.getElementById('undo'), redoButton=document.getElementById('redo');
 let history=[],position=-1,selectedImage=null,restoring=false,recordTimer,savedRange=null;
-function prepareImages(){for(const img of content.querySelectorAll('img')){img.tabIndex=0;img.setAttribute('aria-label',(img.alt||'Image')+' — Enter to select, Delete to remove');}}
+function prepareImages(){for(const img of content.querySelectorAll('img')){img.tabIndex=0;img.setAttribute('aria-label',(img.alt||(isHebrew?'תמונה':'Image'))+(isHebrew?' — Enter לבחירה, Delete למחיקה':' — Enter to select, Delete to remove'));}}
 function removeSelectedImage(){if(!selectedImage)return false;clearTimeout(recordTimer);snapshot();const image=selectedImage;clearImageSelection();image.remove();snapshot();content.focus();return true;}
 function clearImageSelection(){ if(selectedImage) selectedImage.classList.remove('selected-for-removal'); selectedImage=null; }
 function snapshot(){if(restoring)return;const html=content.innerHTML.replace(/ class="selected-for-removal"/g,'');if(history[position]===html)return;history=history.slice(0,position+1);history.push(html);if(history.length>80)history.shift();position=history.length-1;refresh();}
@@ -148,7 +156,7 @@ document.getElementById('print').addEventListener('click',()=>{clearTimeout(reco
  if(!payload)throw new Error(t('missingJob'));
  await chrome.storage.local.remove(key);
  document.title=t('printPageTitle');
- content.dir=payload.direction||'auto';
+ content.dir=['ltr','rtl','auto'].includes(payload.direction)?payload.direction:'auto';
  content.innerHTML=cleanHtml(payload.html);
  prepareImages();
  snapshot();
